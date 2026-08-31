@@ -1,35 +1,49 @@
-@echo off
-chcp 65001 >nul
-title 打包 AI学英语 App 为 exe
+name: Build EXE
 
-echo ============================================
-echo   打包 AI 学英语 App (Windows)
-echo ============================================
-echo.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
 
-REM 检查 Python
-where python >nul 2>nul
-if errorlevel 1 (
-    echo [x] 未检测到 Python, 请先安装 https://www.python.org/downloads/
-    pause
-    exit /b 1
-)
+jobs:
+  build:
+    runs-on: windows-latest
 
-echo ==^> 安装/更新依赖 ...
-python -m pip install --upgrade pip
-python -m pip install pyinstaller
-python -m pip install -r requirements.txt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-echo.
-echo ==^> 开始打包 ...
-python build_exe.py
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-echo.
-if exist "dist\AI学英语.exe" (
-    echo [√] 打包成功! 产物位于 dist\AI学英语.exe
-    echo     可将整个 dist 目录分发给他人, 双击即可运行。
-) else (
-    echo [x] 打包似乎未成功, 请检查上方日志。
-)
-echo.
-pause
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE
+        run: |
+          pyinstaller ^
+            --onefile ^
+            --windowed ^
+            --name "AI学英语" ^
+            --icon app.ico ^
+            --add-data "config.example.json;." ^
+            --add-data "README.md;." ^
+            ai_english_app.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI学英语.exe
+          path: dist/AI学英语.exe
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/AI学英语.exe
